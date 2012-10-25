@@ -4,10 +4,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <time.h>
-#include <ctype.h>
-
-#define EXIT_SUCCESS 0
-#define EXIT_FAILURE 1
 
 static void daemonize(int min)
 {
