@@ -99,11 +99,8 @@ int main( int argc, char *argv[] ) {
         }
     }
 
-    if(flag == 1){
-printf("a\n");
+    if(flag == 1)
         daemonize(time_min);
-printf("a1\n");
-    }
 
     return 0;
 }
