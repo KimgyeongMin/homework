@@ -95,10 +95,12 @@ void static global_callback(struct evhttp_request *req, void *arg)
     ptr = strtok(uri, "/");
   
     file = open(ptr, O_RDONLY);
-    //file_size = read(file, NULL, 1024);
-    evbuffer_add_file(sendMessage, file, 0, 1024);  
+    file_size = lseek(file, 0, SEEK_END);
     
+    evbuffer_add_file(sendMessage, file, 0, file_size);  
     evhttp_send_reply(req, 200, "OK", sendMessage);    
+
+    close(file);
 }
 
 int main(int argc, char **argv)
