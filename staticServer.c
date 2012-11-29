@@ -5,7 +5,8 @@
 #include <signal.h>
 #include <sys/socket.h>
 #include <unistd.h>
-
+#include <sys/stat.h>
+#include <fcntl.h>
 #include <event2/bufferevent.h>
 #include <event2/buffer.h>
 #include <event2/http.h>
@@ -16,7 +17,7 @@
 
 int port = 9999;
 
-static void global_callback(struct evhttp_request *req, void *arg)
+static void debug_callback(struct evhttp_request *req, void *arg)
 {
     struct evbuffer *sendMessage = NULL;
     const char *cmdtype;
@@ -80,6 +81,26 @@ static void global_callback(struct evhttp_request *req, void *arg)
 
 }
 
+void static global_callback(struct evhttp_request *req, void *arg)
+{
+
+    const char *uri = evhttp_request_get_uri(req);
+    char *ptr;
+    int file;
+    struct evbuffer *sendMessage = NULL;
+    int file_size;
+
+    sendMessage = evbuffer_new();
+
+    ptr = strtok(uri, "/");
+  
+    file = open(ptr, O_RDONLY);
+    //file_size = read(file, NULL, 1024);
+    evbuffer_add_file(sendMessage, file, 0, 1024);  
+    
+    evhttp_send_reply(req, 200, "OK", sendMessage);    
+}
+
 int main(int argc, char **argv)
 {
 
@@ -117,7 +138,7 @@ int main(int argc, char **argv)
 		printf("usage : %s -p<port>\n",argv[0]);
 		return 1;
             case ':':
-                printf("use default port : 9999\n");
+                printf("use default port : %d\n",port);
 		break; 
         }
     }
@@ -134,6 +155,8 @@ int main(int argc, char **argv)
          fprintf(stderr, "Error, evhttp_new()\n");
          return 1;
      }
+
+    evhttp_set_cb(http, "/debug", debug_callback, NULL);
 
     evhttp_set_gencb(http, global_callback, NULL);
 
