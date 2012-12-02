@@ -161,7 +161,7 @@ void static global_callback(struct evhttp_request *req, void *arg)
     evhttp_request = evhttp_request_new(request_callback, NULL);
     evhttp_request->chunk_cb = chunk_callback;
     evhttp_make_request(evhttp, evhttp_request, EVHTTP_REQ_GET, "/");
-    event_loop(EVLOOP_NONBLOCK);
+    
 }
 
 int main(int argc, char **argv)
