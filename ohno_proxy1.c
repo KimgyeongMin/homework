@@ -1,4 +1,3 @@
-
 #include <string.h>
 #include <errno.h>
 #include <stdio.h>
@@ -164,13 +163,11 @@ void static global_callback(struct evhttp_request *req, void *arg)
     struct evkeyval  *header;
 
 
-     char * src_address;
-     char * dst_address;
-     ev_uint16_t src_port;
-     struct evhttp_connect * srcreq;
-     srcreq = evhttp_request_get_connection(req);
-
-
+    char * src_address;
+    char * dst_address;
+    ev_uint16_t src_port;
+    struct evhttp_connect * srcreq;
+    srcreq = evhttp_request_get_connection(req);
 
     int socklen;
     struct evconnlistener *listener;
@@ -182,6 +179,8 @@ void static global_callback(struct evhttp_request *req, void *arg)
     header  = headers->tqh_first;
 
     dst_address = evhttp_find_header(headers, "Host");
+    
+  
    
     evhttp_connection_get_peer(srcreq, &src_address, &src_port);
 
@@ -204,7 +203,7 @@ void static global_callback(struct evhttp_request *req, void *arg)
 	exit(1);
     }
 
-    if(evutil_parse_sockaddr_port("211.237.1.231:80", (struct sockaddr*)&connect_addr, &socklen)<0)
+    if(evutil_parse_sockaddr_port(dst_address, (struct sockaddr*)&connect_addr, &socklen)<0)
     {
         printf("fail connect");
 	exit(1);
