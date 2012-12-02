@@ -1,18 +1,5 @@
-#include <sys/types.h>
-#include <sys/time.h>
-#include <sys/queue.h>
-#include <stdlib.h>
-#include <err.h>
-#include <event.h>
+
 #include <evhttp.h>
-#include <unistd.h>
-#include <stdio.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <time.h>
-#include <pthread.h>
-
-
 #include <errno.h>
 #include <signal.h>
 
