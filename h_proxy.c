@@ -36,14 +36,14 @@ void read_callback(struct bufferevent *bev, void *ctx)
      struct bufferevent *p = ctx;
      struct evbuffer *src, *dst;
 
-     //새로운 버퍼를 얻는다
+     //output, input 버퍼를 얻는다
      src = bufferevent_get_input(bev);
      dst = bufferevent_get_output(p);
 
-     //한쪽 버퍼에 추가를 해준다
+     //한쪽 버퍼에 값들을 전부 추가(받은 값 그대로 전송)
      evbuffer_add_buffer(dst, src);
 
-     //모든 메시지를 읽을때까지 돈다
+     //모든 메시지를 읽을때까지 돈다(한번에 최대로 보낼 수 있는 양이 있음)
      if(evbuffer_get_length(dst) >= MAX_PACKET)
      {
         bufferevent_setcb(p, read_callback,  NULL, NULL, bev);
@@ -71,29 +71,29 @@ void static global_callback(struct evhttp_request *req, void *arg)
     struct bufferevent *bufferIn;
     char *buff;
 
-
+    //evhttp_request구조체 안에 들어있는 evhttp_connection 구조체를 얻음
     srcreq = evhttp_request_get_connection(req);
 
-    //input DATA를 얻는다
+    //input 버퍼의 HTTP Header를 얻는다
     headers = evhttp_request_get_input_headers(req);
 
-    //목적지 IP를 얻는다
+    //얻어온 HTTP Header에서 목적지 IP를 얻는다
     dst_address = evhttp_find_header(headers, "Host");
     if(strchr(dst_address, ':') == NULL)
         sprintf(dst_address, "%s:80", dst_address);
     printf("dst : %s\n", dst_address);
 
-    //출발지 IP를 얻는다
+    //evhttp_connection 구조체에서 출발지 IP를 얻는다
     evhttp_connection_get_peer(srcreq, &src_address, &src_port);
     if(strchr(src_address, ':') == NULL)
         sprintf(src_address, "%s:%d", src_address,src_port);
     printf("src : %s\n",src_address);
 
-    //bound를 이용해서 소켓 디스크립터를 얻음
+    //bound 구조체를 이용해서 소켓 디스크립터를 얻음(근대 사용 안함)
     evutil_socket_t fd;
     fd = evhttp_bound_socket_get_fd(handle);
 
-    //Buffer은 이미 연결된 것을 사용, BufferOut는 새로 만듬
+    //bufferIn은 이미 연결된 것을 사용, BufferOut는 새로 만듬
     bufferIn = srcreq->bufev;
     bufferOut  = bufferevent_socket_new(base, -1, BEV_OPT_CLOSE_ON_FREE|BEV_OPT_DEFER_CALLBACKS);
 
@@ -102,13 +102,13 @@ void static global_callback(struct evhttp_request *req, void *arg)
        printf("error bufferevent_socket_new()");
     }
 
-    //buffer에 할당할 IP를 파싱한다
+    //HTTP Header에서 얻어온 IP를 bufferOut에 할당하기 위해 IP를 파싱한다(HTTP Header에서 얻어온 건 단순 문자열)
     if(evutil_parse_sockaddr_port(dst_address, (struct sockaddr*)&connect_addr, &socklen)<0)
     {
         printf("dst sockaddr parse error!\n");
     }
 
-     //buffer의 새로운 연결을 만든다
+     //bufferOut의 새로운 연결을 만든다
      if(bufferevent_socket_connect(bufferOut, (struct sockaddr *)&connect_addr, sizeof(struct sockaddr))<0)
      {
         bufferevent_free(bufferIn);
@@ -139,7 +139,7 @@ int main(int argc, char **argv)
         printf("usage : %s -p<port>\n",argv[0]);
         return 1;
     }
-
+    // -p (port) 옵션 검사
     while( (param = getopt(argc, argv, ":p:")) != -1 ){
         switch(param){
             case 'p':
@@ -179,14 +179,16 @@ int main(int argc, char **argv)
     //callback 세팅
     evhttp_set_gencb(http, global_callback, NULL);
 
-    //bind
+    //bind (0.0.0.0으로 설정하고, Client에서 port만 맞게 들어오면 모두 받아들임)
     handle = evhttp_bind_socket_with_handle(http, "0.0.0.0", port);
     if(!handle)
     {
         fprintf(stderr, "Error, evhttp_bind_socket_with_handle().. couldn't bind to port %d.\n", port);
         return 1;
     }
-   event_base_dispatch(base);
+    
+    //dispatch가 이루어 져야 동작
+    event_base_dispatch(base);
 
-   return 0;
+    return 0;
 }
