@@ -1,18 +1,5 @@
-#include <sys/types.h>
-#include <sys/time.h>
-#include <sys/queue.h>
-#include <stdlib.h>
-#include <err.h>
-#include <event.h>
+
 #include <evhttp.h>
-#include <unistd.h>
-#include <stdio.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <time.h>
-#include <pthread.h>
-
-
 #include <errno.h>
 #include <signal.h>
 
@@ -140,28 +127,20 @@ void static global_callback(struct evhttp_request *req, void *arg)
     char *r = strtok(NULL,":");
     dst_port = atoi(r);
 
-    printf("dst address : %s\n",dst_address);
-    printf("dst port : %d\n",dst_port);
-
 
     evhttp_connection_get_peer(srcreq, &src_address, &src_port);
     if(strchr(src_address, ':') == NULL)
         sprintf(src_address, "%s:%d", src_address,src_port);
 
-    printf("src address : %s\n",src_address);
-    printf("dst address : %s\n",dst_address);
-
-
-
     struct evhttp *evhttp = evhttp_new(base);
-;
+
     struct evhttp_request *evhttp_request;
 
-    evhttp = evhttp_connection_new("211.237.231","80");
+    evhttp = evhttp_connection_new(dst_address, dst_port);
     evhttp_request = evhttp_request_new(request_callback, NULL);
     evhttp_request->chunk_cb = chunk_callback;
     evhttp_make_request(evhttp, evhttp_request, EVHTTP_REQ_GET, "/");
-    event_loop(EVLOOP_NONBLOCK);
+    
 }
 
 int main(int argc, char **argv)
