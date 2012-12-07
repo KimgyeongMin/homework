@@ -1,0 +1,179 @@
+
+struct evconnlistener {
+	const struct evconnlistener_ops *ops;
+	void *lock;
+	evconnlistener_cb cb;
+	evconnlistener_errorcb errorcb;
+	void *user_data;
+	unsigned flags;
+	short refcnt;
+	int accept4_flags;
+	unsigned enabled : 1;
+};
+
+/* A client or server connection. */
+struct evhttp_connection {
+	/* we use this tailq only if this connection was created for an http
+	 * server */
+	TAILQ_ENTRY(evhttp_connection) next;
+
+	evutil_socket_t fd;
+	struct bufferevent *bufev;
+
+	struct event retry_ev;		/* for retrying connects */
+
+	char *bind_address;		/* address to use for binding the src */
+	u_short bind_port;		/* local port for binding the src */
+
+	char *address;			/* address to connect to */
+	u_short port;
+
+	size_t max_headers_size;
+	ev_uint64_t max_body_size;
+
+	int flags;
+#define EVHTTP_CON_INCOMING	0x0001	/* only one request on it ever */
+#define EVHTTP_CON_OUTGOING	0x0002  /* multiple requests possible */
+#define EVHTTP_CON_CLOSEDETECT  0x0004  /* detecting if persistent close */
+
+	struct timeval timeout;		/* timeout for events */
+	int retry_cnt;			/* retry count */
+	int retry_max;			/* maximum number of retries */
+	struct timeval initial_retry_timeout; /* Timeout for low long to wait
+					       * after first failing attempt
+					       * before retry */
+
+	enum evhttp_connection_state state;
+
+	/* for server connections, the http server they are connected with */
+	struct evhttp *http_server;
+
+	TAILQ_HEAD(evcon_requestq, evhttp_request) requests;
+
+	void (*cb)(struct evhttp_connection *, void *);
+	void *cb_arg;
+
+	void (*closecb)(struct evhttp_connection *, void *);
+	void *closecb_arg;
+
+	struct event_callback read_more_deferred_cb;
+
+	struct event_base *base;
+	struct evdns_base *dns_base;
+};
+
+
+struct evhttp_request {
+#if defined(TAILQ_ENTRY)
+	TAILQ_ENTRY(evhttp_request) next;
+#else
+struct {
+	struct evhttp_request *tqe_next;
+	struct evhttp_request **tqe_prev;
+}       next;
+#endif
+
+	/* the connection object that this request belongs to */
+	struct evhttp_connection *evcon;
+	int flags;
+/** The request obj owns the evhttp connection and needs to free it */
+#define EVHTTP_REQ_OWN_CONNECTION	0x0001
+/** Request was made via a proxy */
+#define EVHTTP_PROXY_REQUEST		0x0002
+/** The request object is owned by the user; the user must free it */
+#define EVHTTP_USER_OWNED		0x0004
+/** The request will be used again upstack; freeing must be deferred */
+#define EVHTTP_REQ_DEFER_FREE		0x0008
+/** The request should be freed upstack */
+#define EVHTTP_REQ_NEEDS_FREE		0x0010
+
+	struct evkeyvalq *input_headers;
+	struct evkeyvalq *output_headers;
+
+	/* address of the remote host and the port connection came from */
+	char *remote_host;
+	ev_uint16_t remote_port;
+
+	/* cache of the hostname for evhttp_request_get_host */
+	char *host_cache;
+
+	enum evhttp_request_kind kind;
+	enum evhttp_cmd_type type;
+
+	size_t headers_size;
+	size_t body_size;
+
+	char *uri;			/* uri after HTTP request was parsed */
+	struct evhttp_uri *uri_elems;	/* uri elements */
+
+	char major;			/* HTTP Major number */
+	char minor;			/* HTTP Minor number */
+
+	int response_code;		/* HTTP Response code */
+	char *response_code_line;	/* Readable response */
+
+	struct evbuffer *input_buffer;	/* read data */
+	ev_int64_t ntoread;
+	unsigned chunked:1,		/* a chunked request */
+	    userdone:1;			/* the user has sent all data */
+
+	struct evbuffer *output_buffer;	/* outgoing post or data */
+
+	/* Callback */
+	void (*cb)(struct evhttp_request *, void *);
+	void *cb_arg;
+
+	/*
+	 * Chunked data callback - call for each completed chunk if
+	 * specified.  If not specified, all the data is delivered via
+	 * the regular callback.
+	 */
+	void (*chunk_cb)(struct evhttp_request *, void *);
+};
+
+
+
+struct bufferevent {
+	/** Event base for which this bufferevent was created. */
+	struct event_base *ev_base;
+	/** Pointer to a table of function pointers to set up how this
+	    bufferevent behaves. */
+	const struct bufferevent_ops *be_ops;
+
+	/** A read event that triggers when a timeout has happened or a socket
+	    is ready to read data.  Only used by some subtypes of
+	    bufferevent. */
+	struct event ev_read;
+	/** A write event that triggers when a timeout has happened or a socket
+	    is ready to write data.  Only used by some subtypes of
+	    bufferevent. */
+	struct event ev_write;
+
+	/** An input buffer. Only the bufferevent is allowed to add data to
+	    this buffer, though the user is allowed to drain it. */
+	struct evbuffer *input;
+
+	/** An input buffer. Only the bufferevent is allowed to drain data
+	    from this buffer, though the user is allowed to add it. */
+	struct evbuffer *output;
+
+	struct event_watermark wm_read;
+	struct event_watermark wm_write;
+
+	bufferevent_data_cb readcb;
+	bufferevent_data_cb writecb;
+	/* This should be called 'eventcb', but renaming it would break
+	 * backward compatibility */
+	bufferevent_event_cb errorcb;
+	void *cbarg;
+
+	struct timeval timeout_read;
+	struct timeval timeout_write;
+
+	/** Events that are currently enabled: currently EV_READ and EV_WRITE
+	    are supported. */
+	short enabled;
+};
+
+
+
