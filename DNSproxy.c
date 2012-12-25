@@ -1,35 +1,25 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <assert.h>
+#include <netdb.h>
+
+#include <sys/socket.h>
+
 #include <event2/dns.h>
 #include <event2/dns_struct.h>
 #include <event2/util.h>
 #include <event2/event.h>
 
-#include <sys/socket.h>
-#include <netdb.h>
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <assert.h>
-
-
-/* Let's try binding to 5353.  Port 53 is more traditional, but on most
-operating systems it requires root privileges. */
 #define LISTEN_PORT 53
+#define TTL 4000
 
+//KLDP IP address
 const ev_uint8_t REDIRECT[] = { 211, 237, 1, 231 };
 ev_uint8_t dnsip[20]= {0,};
 
-#define TTL 4000
-
 struct event_base *base;
 struct evdns_base *dnsbase;
-
-struct user_data {
-	char *name;
-	int idx;
-};
-
-
 
 void server_callback(struct evdns_server_request *request, void *data)
 {	
@@ -45,11 +35,12 @@ void server_callback(struct evdns_server_request *request, void *data)
 	for (i=0; i < request->nquestions; ++i) {
 		const struct evdns_server_question *q = request->questions[i];
 		int ok=-1;
+		//Redirection 시킬 URI를 입력
 		if (0 == evutil_ascii_strcasecmp(q->name, "nid.naver.com")) {
 			if (q->type == EVDNS_TYPE_A)
-				ok = evdns_server_request_add_a_reply(
-				request, q->name, 1, REDIRECT, TTL);
+				ok = evdns_server_request_add_a_reply(request, q->name, 1, REDIRECT, TTL);
 		} else {
+			//질의한 URI를 응답 (A record 만 해당)
 			if (q->type == EVDNS_TYPE_A){   
 				printf("A url: %s\n", q->name);
 				sprintf(str_uri, "%s", q->name);
@@ -59,7 +50,7 @@ void server_callback(struct evdns_server_request *request, void *data)
 				{
 					printf( "gethostbyname() Error\n");
 					error = DNS_ERR_SERVERFAILED;
-				}else{
+				}else{  //IP addr parser
 					strcpy((char *)dnsipname, (const char *)inet_ntoa( *(struct in_addr*)host_entry->h_addr_list[0]));					
 					tmp = strtok((char *)dnsipname, ".");
 
@@ -73,7 +64,7 @@ void server_callback(struct evdns_server_request *request, void *data)
 
 					ok = evdns_server_request_add_a_reply(request, str_uri, 1, dnsip, TTL);
 				}
-			}
+			}//다른 TYPE의 DNS요청을 확인
 			else if(q->type == EVDNS_TYPE_NS ){
 				printf("EVDNS_TYPE_NS url: %s\n", q->name);
 			}
@@ -101,7 +92,6 @@ void server_callback(struct evdns_server_request *request, void *data)
 			else if(q->type == EVDNS_QTYPE_ALL ){
 				printf("EVDNS_QTYPE_ALL url: %s\n", q->name);
 			}
-
 		}
 
 		if (ok<0 && error==DNS_ERR_NONE)
@@ -122,18 +112,20 @@ int main(int argc, char **argv)
 
 	dnsbase = evdns_base_new(base, 1);
 
+        //DNS Server address Set
 	server_fd = socket(AF_INET, SOCK_DGRAM, 0);
 	if (server_fd < 0)
 		return 1;
 	memset(&listenaddr, 0, sizeof(listenaddr));
 	listenaddr.sin_family = AF_INET;
 	listenaddr.sin_port = htons(LISTEN_PORT);
-	listenaddr.sin_addr.s_addr = INADDR_ANY;
+	listenaddr.sin_addr.s_addr = INADDR_ANY;	
+	
 	if (bind(server_fd, (struct sockaddr*)&listenaddr, sizeof(listenaddr))<0)
 		return 1;
 	
-	server = evdns_add_server_port_with_base(base, server_fd, 0,
-		server_callback, NULL);
+	//Start DNS Server
+	server = evdns_add_server_port_with_base(base, server_fd, 0, server_callback, NULL);
 	
 	event_base_dispatch(base);
 
